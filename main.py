@@ -1,9 +1,10 @@
 import time
-import opera_on
 from tqdm import tqdm
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
-
+import opera_on
+from bs4 import BeautifulSoup
+# Set up browser session
 port_no = 9226
 session = 6
 browser = opera_on.OperaBrowser(port_no, session)
@@ -11,54 +12,34 @@ driver = browser.get_driver()
 
 # Open the desired URL
 driver.get("https://www.cyberbackgroundchecks.com/address/13050-e-47th-ave/denver/co")
-time.sleep(5)
+time.sleep(10)
+
+page_source = driver.page_source
+soup = BeautifulSoup(page_source, 'html.parser')
+
+# Close the browser
+driver.quit()
+
+# Parsing the required data
 try:
-    # Check if content is present
-    check = driver.find_element(By.ID, "content")
-    if check:
-        print("Check Found")
+    # Extract Name from each card div
+    cards = soup.find_all('div', class_='card')
+    if cards:
+        # Iterate through each card and extract the name
+        for card in cards:
+            name_tag = card.find('span',class_='name-given')
+            if name_tag:
+                name = name_tag.get_text(strip=True)
+                c_d = card.find('p',class_="address-current")
+                current_address = c_d.get_text(strip=True)
+                profile_link = card.find('a',class_="btn")
+                profile_href = profile_link.get("href") if profile_link else "No link found"
+                link_final = f"https://www.cyberbackgroundchecks.com{profile_href}"
+                print(f"Name: {name},\nCurrent Address : {current_address}\nLink : {link_final}\n\n")
+            else:
+                print("Name not found in this card.")
     else:
-        print("No check detected")
-except NoSuchElementException:
-    print("No check detected")
+        print("No card divs found.")
 
-# Find the card divs and extract name
-card_divs = driver.find_elements(By.CLASS_NAME, "card-header")
-if card_divs:
-    print(f"Div Found {len(card_divs)}\n{card_divs[0]}")
-    
-    # # Convert dictionary to WebElement if necessary
-    # for idx, div in enumerate(card_divs):
-    #     # Check if div is a dict and convert it to a WebElement
-    #     if isinstance(div, dict) and 'ELEMENT' in div:
-    #         # Convert dictionary to WebElement using the ELEMENT key
-    #         div = driver.execute_script("return arguments[0]", div)
-    #         card_divs[idx] = div  # Replace dict with WebElement in the list
-    #     print(f"Item {idx} type: {type(div)} - Content: {div}")
-        
-    for div in tqdm(card_divs):
-        try:
-            # Check if div is a WebElement, otherwise skip
-            # if isinstance(div, dict):
-            #     print("Unexpected dict found, skipping this item")
-            #     continue
-            # Wait to ensure content within div is fully loaded
-            time.sleep(0.5)
-            ele = div.values()
-            # Attempt to locate the name within the h2 element
-            name_element = ele.find_element(By.CLASS_NAME, "name-given")
-            name = name_element.text
-            print("\nName Found:", name)
-        except NoSuchElementException:
-            print("\nName not found in this card div (name-given class missing)")
-        except Exception as e:
-            print(f"\nAn error occurred: {e}")
-
-# Wait for 5 seconds
-
-
-# Print the title of the page
-
-# Close the Opera browser window
-driver.quit()  # Close the Opera browser window
-print("Opera Session-6 closed")
+except Exception as e:
+    print("An error occurred during scraping:", e)
